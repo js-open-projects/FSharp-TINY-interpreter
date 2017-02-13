@@ -1,0 +1,18 @@
+x := read;
+y := read;
+i := 0;
+end := false;
+y_greater_x := false;
+while not end do
+  if x = i then y_greater_x := true; 
+                end := true
+  else if y = i then 
+                y_greater_x := false;           
+                end := true
+       else
+       i := i+1 
+       fi
+  fi
+od;
+if y_greater_x then output y
+               else output x fi
