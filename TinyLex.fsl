@@ -1,44 +1,37 @@
-{
+{ 
 module TinyLex
 open TinyParser
 open Microsoft.FSharp.Text.Lexing
 
 let keywords =   
-    [   
-        "if", IF;   
-        "then", THEN;   
-        "else", ELSE;   
-        "fi", FI;   
-        "while", WHILE;   
-        "do", DO;   
-        "od", OD;   
-        "read", READ;   
-        "output", OUTPUT;   
-        "not", NOT;   
-    ] |> Map.ofList
-
+  [ "read", READ;   "not", NOT;   "output", OUTPUT;
+    "if", IF;  "then", THEN;  "else", ELSE;  "fi", FI;   
+    "while", WHILE;  "do", DO;  "od", OD; ] |> Map.ofList
 }
-
+  
 let digit       = ['0'-'9']   
-let number       = '-'?digit+ 
+let number      = digit+ 
 let whitespace  = [' ' '\t']
-let newline     = "\n\r" | '\n' | '\r'
+let newline     = "\r\n" | '\n' | '\r'
 let bool_true   = "true"
 let bool_false  = "false"
 let letter      = ['a'-'z' 'A'-'Z' '_']
 let id          = letter (letter | digit)*
 
 rule tokenize = parse
-  | whitespace	{ tokenize lexbuf }
-  | newline	{ tokenize lexbuf }
-  | number	{ NUM(System.Convert.ToInt32(LexBuffer<_>.LexemeString lexbuf)) }
-  | bool_true   { BOOL(System.Convert.ToBoolean((LexBuffer<_>.LexemeString lexbuf))) }
-  | bool_false   { BOOL(System.Convert.ToBoolean((LexBuffer<_>.LexemeString lexbuf))) }
-  | '+'	{ PLUS }
-  | ":=" { ASSIGN }
-  | ';' { SEMI }
-  | '=' { EQU }
-  | id          { match keywords.TryFind(LexBuffer<_>.LexemeString lexbuf) with   
+  | whitespace  { tokenize lexbuf }
+  | newline     { tokenize lexbuf }
+  | number      { NUM(System.Convert.ToInt32(
+                        LexBuffer<_>.LexemeString lexbuf)) }
+  | bool_true   { BOOL(true) }
+  | bool_false  { BOOL(false) }
+  | id          { let s = LexBuffer<_>.LexemeString 
+                              lexbuf
+                  match keywords.TryFind(s) with   
                   | Some(token) -> token   
-                  | None -> ID(LexBuffer<_>.LexemeString lexbuf) }
-  | eof           { EOF }
+                  | None -> ID(s) }
+  | '='         { EQU }
+  | '+'         { PLUS }
+  | ":="        { ASSIGN }
+  | ';'         { SEMI }
+  | eof         { EOF }

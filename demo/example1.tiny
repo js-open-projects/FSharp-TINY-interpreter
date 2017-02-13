@@ -1,8 +1,8 @@
 i := 0;
-r := read;
-b := i = r;
+n := read;
+b := i = n;
 while not b do
- output i;
- i := i + 1;
- b := i = r
+  output i;
+  i := i + 1;
+  b := i = n
 od

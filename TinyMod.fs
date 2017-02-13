@@ -5,11 +5,11 @@ type identifier = Id of string
 type expression =
      | Num of int
      | Boolean of bool
-     | Plus of expression * expression
-     | Equ of expression * expression
-     | Not of expression
      | Read
      | Ide of identifier
+     | Not of expression
+     | Equ of expression * expression
+     | Plus of expression * expression
 
 type command = 
      | Assign of identifier * expression
@@ -22,22 +22,24 @@ type valueOfExpr =
     | Boolean of bool
     | Num of int
 
-type memoryState = System.Collections.Generic.Dictionary<string, valueOfExpr>
+type memoryState = System.Collections.Generic.
+                      Dictionary<string, valueOfExpr>
 
 let doReadFunction _ = 
-    printf "< "
-    let w = stdin.ReadLine()
+  printf "< "
+  let w = stdin.ReadLine()
+  try
+    let b = System.Convert.ToBoolean(w)
+    valueOfExpr.Boolean(b)
+  with
+  | :? System.FormatException -> 
     try
-        let b = System.Convert.ToBoolean(w)
-        Boolean (b) : valueOfExpr
+      let i = System.Convert.ToInt32(w)
+      if i >= 0 then valueOfExpr.Num(i)
+      else failwith "Input text not in correct format"
     with
-    | :? System.FormatException -> 
-        try
-            let i = System.Convert.ToInt32(w)
-            Num(i) : valueOfExpr
-        with
-        | :? System.FormatException ->
-            raise (new System.ArgumentException("Input text was not in correct format"))
+    | :? System.FormatException ->
+      failwith "Input text not in correct format"
 
 let doOutputFunction (w:valueOfExpr) =
     printf "> "
@@ -45,62 +47,75 @@ let doOutputFunction (w:valueOfExpr) =
     | Boolean b -> printfn "%b" b
     | Num i -> printfn "%d" i
 
-let rec evalExpression (w:expression) (m:memoryState) =
-    match w with
-    | expression.Num(i) -> (valueOfExpr.Num(i), m) 
-    | expression.Boolean(b) -> (valueOfExpr.Boolean(b), m)
-    | Plus (e1, e2) -> 
-        let (w1, m1) = evalExpression e1 m
-        let (w2, m2) = evalExpression e2 m1
-        match (w1, w2) with
-        | Num(intNum1), Num(intNum2) -> ((Num(intNum1 + intNum2)), m2)
-        | _ -> raise (new System.ArgumentException("Binary \"+\" not used on two numbers"))
-    | Equ (e1, e2) ->
-        let (w1, m1) = evalExpression e1 m
-        let (w2, m2) = evalExpression e2 m1
-        match (w1, w2) with
-        | Num(intNum1), Num(intNum2) -> ((Boolean(intNum1 = intNum2)), m2)
-        | Boolean(boolV1), Boolean(boolV2) -> ((Boolean(boolV1 = boolV2)), m2)
-        | _ -> raise (new System.ArgumentException("Binary \"=\" not used on two the same types"))
+let rec evalExpression (e:expression) (s:memoryState) =
+    match e with
+    | expression.Num(i) -> (valueOfExpr.Num(i), s) 
+    | expression.Boolean(b) -> (valueOfExpr.Boolean(b), s)
+    | Read -> (doReadFunction (), s)
+    | Ide (Id(name)) -> 
+        if s.ContainsKey(name) 
+           then (s.[name], s)
+           else failwith ("Identifier \"" + name + 
+                  "\" not found in memory")    
     | Not expr ->
-        let (w1, m1) = evalExpression expr m
-        match w1 with
-        | Boolean(true) -> (Boolean(false), m1)
-        | Boolean(false) -> (Boolean(true), m1)
-        | _ -> raise (new System.ArgumentException("Unary \"not\" used on non-boolean value"))
-    | Read -> (doReadFunction (), m)
-    | Ide (Id(nazwa)) -> if m.ContainsKey(nazwa) then (m.[nazwa], m)
-                         else raise (new System.ArgumentException("Identifier \"" + nazwa + "\" not found in memory"))
+        let (v, s1) = evalExpression expr s
+        match v with
+        | Boolean(true) -> (Boolean(false), s1)
+        | Boolean(false) -> (Boolean(true), s1)
+        | _ -> failwith ("Unary \"not\" used on" +
+                         " non-Boolean value")
+    | Equ (expr1, expr2) ->
+        let (v1, s1) = evalExpression expr1 s
+        let (v2, s2) = evalExpression expr2 s1
+        match (v1, v2) with
+        | Num(intNum1), Num(intNum2) -> 
+           ((Boolean(intNum1 = intNum2)), s2)
+        | Boolean(boolV1), Boolean(boolV2) -> 
+           ((Boolean(boolV1 = boolV2)), s2)
+        | _ -> failwith("Binary \"=\" not used on" +
+                 " two the same types")
+    | Plus (expr1, expr2) -> 
+        let (v1, s1) = evalExpression expr1 s
+        let (v2, s2) = evalExpression expr2 s1
+        match (v1, v2) with
+        | Num(intNum1), Num(intNum2) -> 
+          ((Num(intNum1 + intNum2)), s2)
+        | _ -> failwith("Binary \"+\" not used on" +
+                 " two numbers")
+//end of evalExpression
 
-let rec interpetCommand cmd (m:memoryState) =
+let rec interpretCommand cmd (s:memoryState) =
     match cmd with
-    | Assign(Id(nazwa), wyr) -> 
-        let (w1, m1) = evalExpression wyr m
-        if m1.ContainsKey(nazwa) then m1.[nazwa] <- w1 ; m1
-        else m1.Add(nazwa, w1) ; m1
-    | Output ( wyr ) -> 
-        let (w1, m1) = evalExpression wyr m
-        doOutputFunction w1
-        m1
-    | If ( wyr, cmdThen, cmdElse) ->
-        let (w1, m1) = evalExpression wyr m
-        match w1 with
-        | Boolean(w) -> if w then processList cmdThen m1 else processList cmdElse m1
-        | _ -> raise (new System.ArgumentException("if instruction not applied on boolean value"))
-    | While (wyr, cmdList) ->
-        let (w1, m1) = evalExpression wyr m
-        match w1 with
+    | Assign(Id(name), expr) -> 
+        let (v, s1) = evalExpression expr s
+        if s1.ContainsKey(name) then s1.[name] <- v ; s1
+        else s1.Add(name, v) ; s1
+    | Output ( expr ) -> 
+        let (v, s1) = evalExpression expr s
+        doOutputFunction v
+        s1
+       | If (expr, cmdThen, cmdElse) ->
+       let (v, s1) = evalExpression expr s
+       match v with
+       | Boolean (w) -> if w then processList cmdThen s1 
+                             else processList cmdElse s1
+       | _ -> failwith "if condition not Boolean value"
+    | While (expr, cmdList) ->
+        let (v, s1) = evalExpression expr s
+        match v with
+        | Boolean (false) -> s1
         | Boolean (true) -> 
-            let m2 = processList cmdList m1
-            interpetCommand cmd m2
-        | Boolean (false) -> m1
-        | _ -> raise (new System.ArgumentException("while condition not applied on boolean value"))
+             let s2 = processList cmdList s1
+             interpretCommand cmd s2
+        | _ -> failwith "while condition not Boolean value"
 
-and processList cmdList (m:memoryState) =
+and processList cmdList (s:memoryState) =
     match cmdList with
-    | [] -> m
-    | h::t -> let m1 = interpetCommand h m
-              processList t m1
+    | [] -> s
+    | h::t -> let s1 = interpretCommand h s
+              processList t s1
+//end of interpretCommand
+
 
 let dumpMemoryState (m:memoryState) =
     printfn "Actual memory state"
