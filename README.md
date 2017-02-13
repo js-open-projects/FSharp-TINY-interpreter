@@ -18,4 +18,4 @@ should be commented out.
 fslex --unicode TinyLex.fsl
 ```
 
-Further via menu Build in 
+Further via menu Build in MonoDevelop.
